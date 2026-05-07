@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>拼音認讀：看拼音打漢字</title>
+  <style>
+    :root {
+      --main: #2f6f8f;
+      --light: #eef7fb;
+      --border: #d7e3ea;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --wrong: #b91c1c;
+      --right: #15803d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+      background: #f6f8fa;
+      color: var(--text);
+      line-height: 1.6;
+      user-select: none;
+    }
+    .page { max-width: 1100px; margin: 0 auto; padding: 36px 24px 56px; }
+    .card {
+      background: #fff; border: 1px solid var(--border); border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); padding: 28px;
+    }
+    h1 { margin: 0 0 12px; font-size: 30px; color: var(--main); }
+    h2 { margin: 0 0 18px; font-size: 24px; }
+    .note { color: var(--muted); margin: 8px 0 24px; }
+    label { display: block; margin: 18px 0 8px; font-weight: 700; }
+    input[type="text"] {
+      width: 100%; padding: 12px 14px; border: 1px solid #c9d6df;
+      border-radius: 10px; font-size: 17px; background: #fff; user-select: text;
+    }
+    textarea {
+      width: 100%; min-height: 84px; padding: 12px 14px; border: 1px solid #c9d6df;
+      border-radius: 10px; font-size: 18px; line-height: 1.7; resize: vertical;
+      background: #fff; user-select: text;
+      font-family: "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif;
+    }
+    button {
+      border: 0; border-radius: 12px; padding: 12px 22px; font-size: 17px;
+      font-weight: 700; background: var(--main); color: white; cursor: pointer; margin-top: 22px;
+    }
+    button:hover { filter: brightness(0.95); }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+    .student-info {
+      min-width: 240px; text-align: right; font-size: 15px; color: var(--muted);
+      background: var(--light); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px;
+    }
+    .inline-score {
+      margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+      font-weight: 700; color: var(--main);
+    }
+    .item { margin: 20px 0; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
+    .pinyin { font-size: 22px; font-weight: 700; color: #374151; margin-bottom: 12px; letter-spacing: 0.2px; }
+    .feedback { display: none; margin-top: 8px; font-size: 15px; }
+    .feedback.right { color: var(--right); }
+    .feedback.wrong { color: var(--wrong); }
+    .marked-result {
+      display: none; margin-top: 8px; padding: 10px 12px; background: #fafafa;
+      border: 1px dashed #d1d5db; border-radius: 8px; line-height: 1.9; user-select: text;
+    }
+    .wrong-char { color: var(--wrong); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+    .small { font-size: 14px; color: var(--muted); margin-top: 8px; }
+    .hidden { display: none; }
+    @media (max-width: 720px) {
+      .topbar { flex-direction: column; }
+      .student-info { text-align: left; width: 100%; }
+      .pinyin { font-size: 19px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section id="loginPage" class="card">
+      <h1>拼音認讀作業</h1>
+      <h2>看拼音打漢字</h2>
+      <p class="note">請先輸入姓名與學號。開始後，請根據畫面上的拼音輸入相對應的漢字句子。本作業以「字數」計分，不以題數計分。</p>
+      <label for="studentName">姓名</label>
+      <input id="studentName" type="text" autocomplete="off" placeholder="請輸入姓名" />
+      <label for="studentId">學號</label>
+      <input id="studentId" type="text" autocomplete="off" placeholder="請輸入學號" />
+      <button id="startBtn">開始作答</button>
+      <p class="small">提醒：本頁面已限制複製、貼上與右鍵選單。請直接輸入答案。</p>
+    </section>
+
+    <section id="practicePage" class="hidden">
+      <div class="topbar">
+        <div>
+          <h1>拼音認讀練習</h1>
+          <p class="note">請看拼音，輸入正確的漢字句子。標點符號不列入計分；最後分數依正確字數比例計算。按「完成」後仍可修改並重新送出。</p>
+        </div>
+        <div class="student-info">
+          <div>姓名：<span id="displayName"></span></div>
+          <div>學號：<span id="displayId"></span></div>
+          <div id="scoreBox" class="inline-score">分數：尚未完成</div>
+        </div>
+      </div>
+
+      <form id="quizForm" class="card" autocomplete="off">
+        <div id="questionList"></div>
+        <button id="finishBtn" type="submit">完成</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const questions = [
+      { pinyin: "Qǐngwèn lí zhèlǐ zuì jìnde yóujú zài shénme dìfang?", answer: "請問離這裡最近的郵局在什麼地方" },
+      { pinyin: "Nǐ wǎng qiánmiàn yìzhí zǒu, dàole dì'èrge shízìlùkǒu wǎng yòu zhuǎn, jīngguò yìjiā bǎihuògōngsī, zài zǒu yíhuìr jiù dàole.", answer: "你往前面一直走到了第二個十字路口往右轉經過一家百貨公司再走一會兒就到了" },
+      { pinyin: "Yàoshi zǒude kuài, zhǐyào shífēnzhōng jiù gòule.", answer: "要是走得快只要十分鐘就夠了" },
+      { pinyin: "Cóng zhèlǐ dào nàlǐ qù yǒu gōnggòngqìchē ma?", answer: "從這裡到那裡去有公共汽車嗎" },
+      { pinyin: "Yǒu, nǐ kěyǐ zuò sānhào gōngchē. Chēzhàn jiù zài nèibiān.", answer: "有你可以坐三號公車車站就在那邊" },
+      { pinyin: "Wǒ dǎsuàn xiàgeyuè shíhào dào Měiguó qù lǚxíng, qǐng nín bāng wǒ mǎi jīpiào.", answer: "我打算下個月十號到美國去旅行請您幫我買機票" },
+      { pinyin: "Wǒ yào xiān dào xībùde Luòshānjī, zài dào dōngbùde Niǔyuē gēn Huáshèngdùn.", answer: "我要先到西部的洛杉磯再到東部的紐約跟華盛頓" },
+      { pinyin: "Hǎo, wǒ kànkan. Qīyuè shíhào yǒu fēijī cóng Táiběi jīngguò Rìběn fēi Luòshānjī.", answer: "好我看看七月十號有飛機從臺北經過日本飛洛杉磯" },
+      { pinyin: "Wǒ gēn Niǔyuēde péngyǒu yíkuàir kāichē qù. Bāyuè wǔhào líkāi Huáshèngdùn huí Táiběi.", answer: "我跟紐約的朋友一塊兒開車去八月五號離開華盛頓回臺北" },
+      { pinyin: "Méi wèntí. Bāyuè wǔhào xiàwǔ sāndiǎn cóng Huáshèngdùn qǐfēi, hǎo ma?", answer: "沒問題八月五號下午三點從華盛頓起飛好嗎" }
+    ];
+
+    const loginPage = document.getElementById("loginPage");
+    const practicePage = document.getElementById("practicePage");
+    const startBtn = document.getElementById("startBtn");
+    const quizForm = document.getElementById("quizForm");
+    const questionList = document.getElementById("questionList");
+
+    function normalize(text) {
+      return (text || "")
+        .replace(/[\s\n\r\t]/g, "")
+        .replace(/[，。！？、；：,.!?;:「」『』（）()\[\]【】《》〈〉“”‘’]/g, "")
+        .replace(/台/g, "臺")
+        .trim();
+    }
+
+    function editDistance(a, b) {
+      const arrA = Array.from(a);
+      const arrB = Array.from(b);
+      const dp = Array.from({ length: arrA.length + 1 }, () => Array(arrB.length + 1).fill(0));
+      for (let i = 0; i <= arrA.length; i++) dp[i][0] = i;
+      for (let j = 0; j <= arrB.length; j++) dp[0][j] = j;
+      for (let i = 1; i <= arrA.length; i++) {
+        for (let j = 1; j <= arrB.length; j++) {
+          const cost = arrA[i - 1] === arrB[j - 1] ? 0 : 1;
+          dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+        }
+      }
+      return dp[arrA.length][arrB.length];
+    }
+
+    function countCorrectCharacters(userText, answerText) {
+      const user = normalize(userText);
+      const answer = normalize(answerText);
+      const answerLength = Array.from(answer).length;
+      const distance = editDistance(answer, user);
+      return Math.max(answerLength - distance, 0);
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function buildMarkedResult(userText, answerText) {
+      const userChars = Array.from(normalize(userText));
+      const answerChars = Array.from(normalize(answerText));
+      const maxLength = Math.max(userChars.length, answerChars.length);
+      let output = "";
+      for (let i = 0; i < maxLength; i++) {
+        const userChar = userChars[i];
+        const answerChar = answerChars[i];
+        if (userChar === undefined) {
+          output += `<span class="wrong-char">□</span>`;
+        } else if (userChar === answerChar) {
+          output += escapeHtml(userChar);
+        } else {
+          output += `<span class="wrong-char">${escapeHtml(userChar)}</span>`;
+        }
+      }
+      return output || `<span class="wrong-char">未作答</span>`;
+    }
+
+    function renderQuestions() {
+      questionList.innerHTML = questions.map((q, i) => `
+        <div class="item">
+          <div class="pinyin">${i + 1}. ${q.pinyin}</div>
+          <textarea id="answer${i}" data-index="${i}" placeholder="請輸入漢字句子"></textarea>
+          <div id="feedback${i}" class="feedback"></div>
+          <div id="marked${i}" class="marked-result"></div>
+        </div>
+      `).join("");
+    }
+
+    startBtn.addEventListener("click", () => {
+      const name = document.getElementById("studentName").value.trim();
+      const id = document.getElementById("studentId").value.trim();
+      if (!name || !id) {
+        alert("請先輸入姓名與學號。");
+        return;
+      }
+      document.getElementById("displayName").textContent = name;
+      document.getElementById("displayId").textContent = id;
+      loginPage.classList.add("hidden");
+      practicePage.classList.remove("hidden");
+      renderQuestions();
+      window.scrollTo(0, 0);
+    });
+
+    quizForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      let correctCharacters = 0;
+      let totalCharacters = 0;
+
+      questions.forEach((q, i) => {
+        const userText = document.getElementById(`answer${i}`).value;
+        const feedback = document.getElementById(`feedback${i}`);
+        const marked = document.getElementById(`marked${i}`);
+        const answerLength = Array.from(normalize(q.answer)).length;
+        const itemCorrectCharacters = countCorrectCharacters(userText, q.answer);
+
+        correctCharacters += itemCorrectCharacters;
+        totalCharacters += answerLength;
+
+        feedback.style.display = "block";
+        marked.style.display = "block";
+        marked.innerHTML = `作答結果：${buildMarkedResult(userText, q.answer)}`;
+
+        if (itemCorrectCharacters === answerLength) {
+          feedback.className = "feedback right";
+          feedback.textContent = `✓ 本句全對：${itemCorrectCharacters} / ${answerLength} 字`;
+        } else {
+          feedback.className = "feedback wrong";
+          feedback.textContent = `本句得分：${itemCorrectCharacters} / ${answerLength} 字。紅色字表示該位置可能有誤；□ 表示缺字。`;
+        }
+      });
+
+      const score = totalCharacters === 0 ? 0 : Math.round((correctCharacters / totalCharacters) * 100);
+      document.getElementById("scoreBox").innerHTML = `分數：${score} / 100<br><span class="small">${correctCharacters} / ${totalCharacters} 字</span>`;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    ["copy", "cut", "paste", "contextmenu", "dragstart"].forEach((eventName) => {
+      document.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        alert("本作業頁面不開放複製、剪下、貼上或右鍵操作。請直接輸入答案。");
+      });
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+      const blocked = (event.ctrlKey || event.metaKey) && ["c", "v", "x", "a", "s", "p"].includes(key);
+      if (blocked) {
+        event.preventDefault();
+        alert("本作業頁面不開放快捷鍵複製、貼上、全選、儲存或列印。請直接輸入答案。");
+      }
+    });
+  </script>
+</body>
+</html>
